@@ -123,6 +123,39 @@ export default function Home() {
     bought,
   ]);
 
+  // Ask the browser not to clear this site's saved data when it is short on space.
+  useEffect(() => {
+    Promise.resolve(navigator.storage?.persist?.()).catch(() => {});
+  }, []);
+
+  // A backup file is the safety net: it survives clearing the browser, switching
+  // computers, or Safari dropping data after a week of not visiting.
+  function exportBackup() {
+    const raw = localStorage.getItem(STORAGE_KEY) ?? "{}";
+    const url = URL.createObjectURL(
+      new Blob([raw], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `meal-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importBackup(file: File) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.library)) throw new Error("not a backup");
+      localStorage.setItem(STORAGE_KEY, text);
+      location.reload();
+    } catch {
+      alert(
+        "这不是有效的备份文件 / This isn't a valid Meal Planner backup file.",
+      );
+    }
+  }
+
   const resolvedById = useMemo(
     () => new Map(library.map((d) => [d.id, resolveDish(d)])),
     [library],
@@ -264,15 +297,37 @@ export default function Home() {
             <h1 className="text-xl font-bold text-stone-900">
               <Bi en="Weekly Meal Planner" zh="每周餐食计划" />
             </h1>
-            <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-stone-600">
-              <input
-                type="checkbox"
-                checked={showZh}
-                onChange={(e) => setShowZh(e.target.checked)}
-                className="h-4 w-4 accent-emerald-600"
-              />
-              Show Chinese / 显示中文
-            </label>
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={exportBackup}
+                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-600 hover:bg-stone-50"
+              >
+                <Bi en="Back up" zh="备份" />
+              </button>
+              <label className="cursor-pointer rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs text-stone-600 hover:bg-stone-50">
+                <Bi en="Restore" zh="恢复" />
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importBackup(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-600">
+                <input
+                  type="checkbox"
+                  checked={showZh}
+                  onChange={(e) => setShowZh(e.target.checked)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                Show Chinese / 显示中文
+              </label>
+            </div>
           </div>
         </header>
 
